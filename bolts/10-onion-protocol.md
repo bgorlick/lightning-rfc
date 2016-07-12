@@ -4,8 +4,7 @@
 
 This document describes the construction of an onion routed packet
 that is used to route a message from a _sender_ to a _recipient_, over
-a number of intermediate nodes, called _hops_.  For simplicity we
-consider the last hop to be the intended recipient.
+a number of intermediate nodes, called _hops_.
 
 The routing schema is based on the
 [Sphinx](http://www.cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf)
@@ -28,11 +27,11 @@ allows the sender to create a shared secret using ECDH for each
 intermediate node, including the recipient. The shared secret is then
 used to generate a _pseudo-random stream_ of bytes to obfuscate the
 packet, and a number of _keys_ used to encrypt the payload and compute
-the HMAC ensuring integrity at each hop.
+HMACs ensuring integrity at each hop.
 
 This specification describes version 0 of the packet format and
 routing mechanism. Should a node receive a higher version packet that
-it does not implement it will report a route failure to the sending
+it does not implement it MUST report a route failure to the sending
 node and discard the packet.
 
 ## Conventions
@@ -41,8 +40,8 @@ There are a number of conventions we will adhere throughout the document:
 
  - The maximum route length is limited to 20 hops.
  - Nodes are addressed using 20 byte identifiers. These are computed
-   from the node's public key in accordance to the Bitcoin address
-   creation as `RIPEMD160(SHA256(pubkey))` where `pubkey` is the
+   from the node's public key, in accordance to the Bitcoin address
+   creation, as `RIPEMD160(SHA256(pubkey))` where `pubkey` is the
    serialized compressed public key of the node. Refer to
    [`OP_HASH160`](https://en.bitcoin.it/wiki/Script#Crypto) for
    details.
@@ -74,13 +73,9 @@ The overall structure of the packet is depicted below. The network format of the
 +--------+-----------------+--------------------+
 ~~~~
 
-The header is a fixed 854 byte array containing the necessary
-information for each hop to identify the next hop, and verify the
-integrity of the packet. It consists of a version byte, a 33 byte
-compressed `secp256k1` public key, used during the shared secret
-generation, a 20 byte HMAC used to verify the packet's integrity and a
-fixed size routing information. For this specification the version
-byte has a constant value of `0x00`.
+The header is a fixed 854 byte array containing the necessary information for each hop to identify the next hop, and verify the integrity of the packet.
+It consists of a version byte, a 33 byte compressed `secp256k1` public key, used during the shared secret generation, a 20 byte HMAC used to verify the packet's integrity and a 800 byte routing information field.
+For this specification the version byte has a constant value of `0x00`.
 
 ~~~~
 +------------------+-----------------------+-----------------+------------...-----------+
@@ -88,9 +83,8 @@ byte has a constant value of `0x00`.
 +------------------+-----------------------+-----------------+------------...-----------+
 ~~~~
 
-Routing info is a structure that holds obfuscated versions of the next
-hop's address and the associated HMAC.
-The routing info is 800 bytes long, i.e., 20 byte MAC and 20 byte address times 20 hops, and has the following structure:
+The routing info field is a structure that holds obfuscated versions of the next hop's address and the associated HMAC.
+It is 800 bytes long, i.e., 20 byte MAC and 20 byte address times 20 hops, and has the following structure:
 
 ~~~~
 +-------------+----------+-------------+----------+-----+--------+
@@ -145,7 +139,7 @@ The construction returns one 2258 byte packet and the first hop's address.
 
 The packet construction is performed in reverse order of the route, i.e., the last hop's operations are applied first.
 
-The end-to-end payload field is initialized by the actual payload, padding it with one 0x7F byte followed by 0xFF bytes for a total length to 1024 bytes.
+The end-to-end payload field is initialized by the actual payload, padding it with one `0x7F` byte followed by `0xFF` bytes for a total length to 1024 bytes.
 The per-hop payload is initialized with 400 `0x00` bytes. 
 The routing info is initialized with 800 `0x00` bytes.
 The next address and the HMAC are initialized to 20 `0x00` bytes each.
@@ -177,10 +171,10 @@ The packet generation returns the serialized packet, consisting of the version b
 ## Packet Forwarding
 
 Upon receiving a packet a node compares the version byte of the packet with its supported versions and aborts otherwise.
-This specification is limited to version 0 packets and the structure of future version may change.
+This specification is limited to version `0` packets and the structure of future version may change.
 The receiving node then splits the packet into its fields.
 
-The node MUST check that the ephemeral public key is on the secp256k1 curve.
+The node MUST check that the ephemeral public key is on the `secp256k1` curve.
 Should this not be the case the node MUST abort processing the packet and report a route failure to the sender.
 
 The node then computes the shared secret as described below, using the private key corresponding to its public key and the ephemeral key from the packet.
@@ -201,10 +195,10 @@ The routing info for the outgoing packet, destined for the next hop, consists of
 
 The per-hop payload is deobfuscated in a similar way.
 The node creates a copy of the per-hop payloads field and appends 20 `0x00` bytes of padding.
-It generates 420 bytes or pseudo random bytes using the _gamma_-key and applies it using `XOR` to the padded copy of the per-hop payloads.
+It generates 420 bytes of pseudo random bytes using the _gamma_-key and applies it using `XOR` to the padded copy of the per-hop payloads.
 The first 20 bytes of the padded copy are the node's per-hop payload, while the remaining 400 bytes are the per-hop payload destined for the next hop.
 
-A special HMAC value of 20 `0x00` bytes indicates that the current hop is the intended recipient and that the packet should not be forwarded.
+A special HMAC value of 20 `0x00` bytes indicates that the currently processing hop is the intended recipient and that the packet should not be forwarded.
 At this point the end-to-end payload is fully decrypted and the route has terminated.
 
 Should the HMAC not indicate route termination and the next hop be a peer of the current node, then the new packet is assembled by blinding the ephemeral key with the current node's public key and shared secret, and serializing the routing info, per-hop payload and end-to-end payload fields.
@@ -220,7 +214,7 @@ The shared secret creation receives a public key and a 32 byte secret as input a
 In the packet generation phase the secret is the `sessionkey` and the public key is the node's public key, blinded with all previous blinding factors.
 In the pocessing phase the secret is the node's private key and the public key is the ephemeral public key from the packet, which has been incrementally blinded by the predecessors.
 
-The public key is multiplied by the key, using to the `secp256k1` curve.
+The public key is multiplied by the secret, using to the `secp256k1` curve.
 The `X` coordinate of the multiplication result is serialized and hashed using `SHA256`.
 The resulting hash is returned as the shared secret.
 Notice that this is not the ECDH variant implemented in `libsecp256k1` which also includes the `Y` coordinate in the hash.
