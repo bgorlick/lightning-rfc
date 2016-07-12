@@ -266,7 +266,7 @@ The incrementally obfuscated padding is called the _filler_.
 
 The following code shows how the filler is generated:
 
-~~~
+```Go
 func generate_filler(key string, numHops int, hopSize int, sharedSecrets [][sharedSecretSize]byte) []byte {
 	fillerSize := uint((numMaxHops + 1) * hopSize)
 	filler := make([]byte, fillerSize)
@@ -292,8 +292,7 @@ func generate_filler(key string, numHops int, hopSize int, sharedSecrets [][shar
 	// bytes will be prepended by the packet generation.
 	return filler[(numMaxHops-numHops+2)*hopSize:]
 }
-
-~~~
+```
 
 Notice that this implementation is for demonstration purposes only, the filler can be generated much more efficiently.
 The last hop does not obfuscate the filler since it will not forward the packet and will not extract an HMAC for any followup hops.
