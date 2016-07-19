@@ -191,6 +191,83 @@ The final value for the HMAC is the HMAC as it should be sent to the first hop.
 
 The packet generation returns the serialized packet, consisting of the version byte, the ephemeral pubkey for the first hop, the HMAC for the first hop, the obfuscated routing info, the obfuscated per-hop payload and the encrypted end-to-end payload.
 
+The following code implements the packet construction in Go:
+
+```Go
+func ConstructPacket(paymentPath []*btcec.PublicKey, sessionKey *btcec.PrivateKey,
+	message [1024]byte, rawHopPayloads [][]byte) ([]byte) {
+	numHops := len(paymentPath)
+	
+	ephemeralpks := make([]*btcec.PublicKey, numHops)
+	sharedsecrets := make([][sha256.Size]byte, numHops)
+	blindingfactors := make([][sha256.Size]byte, numHops)
+
+	ephemeralpks[0] = sessionKey.PubKey()
+	sharedsecrets[0] = sha256.Sum256(btcec.GenerateSharedSecret(sessionKey, paymentPath[0]))
+	blindingfactors[0] = computeBlindingFactor(ephemeralpks[0], sharedsecrets[0][:])
+
+	for i := 1; i <= numHops-1; i++ {
+		ephemeralpks[i] = blindGroupElement(ephemeralpks[i-1], blindingfactors[i-1][:])
+		bpk := blindGroupElement(paymentPath[i], sessionKey.D.Bytes())
+		sharedsecrets[i] = sha256.Sum256(multiScalarMult(bpk, blindingfactors[:i]).X.Bytes())
+		blindingfactors[i] = computeBlindingFactor(ephemeralpks[i], sharedsecrets[i][:])
+	}
+
+	filler := generate_filler("rho", numHops, 2*20, sharedsecrets)
+	hopfiller := generate_filler("gamma", numHops, 20, sharedsecrets)
+
+	// Initialize all of these to 0x00-arrays
+	var header [20 * 40]byte
+	var hoppayloads [20 * 20]byte
+	var next_hmac [20]byte
+	var next_address [20]byte
+
+	// Compute header in reverse path order
+	for i := numHops - 1; i >= 0; i-- {
+		rhoKey := generateKey("rho", sharedsecrets[i])
+		gammaKey := generateKey("gamma", sharedsecrets[i])
+		piKey := generateKey("pi", sharedsecrets[i])
+		muKey := generateKey("mu", sharedsecrets[i])
+
+		// Shift and obfuscate header
+		stream := generateStream(rhoKey, numStreamBytes)
+		rightShift(header[:], 2*20)
+		copy(header[:], next_address[:])
+		copy(header[20:], next_hmac[:])
+		xor(header[:], header[:], streamBytes[:routingInfoSize])
+
+		// Shift and obfuscate per-hop payload
+		stream = generateStream(gammaKey, uint(len(hoppayloads)))
+		rightShift(hoppayloads[:], 20)
+		copy(hoppayloads[:], rawHopPayloads[i])
+		xor(hoppayloads[:], hoppayloads[:], hopStreamBytes)
+
+		// Add fillers if this is the last hop
+		if i == numHops-1 {
+			copy(header[len(header)-len(filler):], filler)
+			copy(hoppayloads[len(hoppayloads)-len(hopfiller):], hopfiller)
+		}
+		cipher, _ := chacha20.New(piKey[:], bytes.Repeat([]byte{0x00}, 8))
+		cipher.XORKeyStream(message[:], message[:])
+
+		next_hmac = ComputeMac(muKey, append(append(header[:], hoppayloads[:]...), onion[:]...))
+		next_address = btcutil.Hash160(paymentPath[i].SerializeCompressed())
+	}
+	
+	// Assemble packet
+	var packet [2258]byte
+	version = []byte{0x00}
+	copy(packet[:], version)
+	copy(packet[1:], ephemeralpks[0].SerializeCompressed())
+	copy(packet[34:], next_hmac)
+	copy(packet[54:], header)
+	copy(packet[854:], hoppayloads)
+	copy(packet[1254:], message)
+	
+	return packet
+}
+```
+
 ## Packet Forwarding
 
 Upon receiving a packet a node compares the version byte of the packet with its supported versions and aborts otherwise.
@@ -266,7 +343,7 @@ The incrementally obfuscated padding is called the _filler_.
 The following code shows how the filler is generated:
 
 ```Go
-func generate_filler(key string, numHops int, hopSize int, sharedSecrets [][sharedSecretSize]byte) []byte {
+func generateFiller(key string, numHops int, hopSize int, sharedSecrets [][sharedSecretSize]byte) []byte {
 	fillerSize := uint((numMaxHops + 1) * hopSize)
 	filler := make([]byte, fillerSize)
 
