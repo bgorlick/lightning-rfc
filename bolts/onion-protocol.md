@@ -3,7 +3,7 @@
 ## Overview
 
 This document describes the construction of an onion routed packet
-that is used to route a message from a _sender_ to a _recipient_, over
+that is used to route a message from a _origin node_ to a _final node_, over
 a number of intermediate nodes, called _hops_.
 
 The routing schema is based on the
@@ -24,7 +24,7 @@ traffic analysis.
 The route is constructed by the sender, which knows a public key of
 each intermediate node. Knowing the intermediate node's public key
 allows the sender to create a shared secret using ECDH for each
-intermediate node, including the recipient. The shared secret is then
+intermediate node, including the final recipient. The shared secret is then
 used to generate a _pseudo-random stream_ of bytes to obfuscate the
 packet, and a number of _keys_ used to encrypt the payload and compute
 HMACs ensuring integrity at each hop.
