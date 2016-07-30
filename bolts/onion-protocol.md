@@ -52,6 +52,7 @@ There are a number of conventions we will adhere throughout the document:
  - Pseudo-Random Stream: [`ChaCha20`](https://tools.ietf.org/html/rfc7539) is used to generate a pseudo-random byte stream.
    For the generation we use a fixed null-nonce (`0x0000000000000000`), a key derived from a shared secret and a `0x00`-byte stream of the desired output size as message.
  - We use the terms _hop_ and _node_ interchangeably.
+ - A _peer_ is a direct neighbor of the processing node in the overlay network.
 
 ## Key Generation
 
@@ -137,7 +138,10 @@ bytes and repeatedly encrypted at each hop using a key derived from the hop's sh
 
 ## Packet Construction
 
-The sender computes a route `{n_1, ..., n_{r-1}, n_r}`, where `n_1` is a peer of the sender and `n_r` is the recipient. The sender gathers the public keys for `n_1` to `n_r` and generates a random 32 byte `sessionkey`.
+Assuming a _sender node_ `n_0` wants to route a packet to a _final recipient_ `n_r`.
+The sender computes a route `{n_0, n_1, ..., n_{r-1}, n_r}`, where `n_0` is the sender itself and `n_r` is the final recipient.
+The nodes `n_i` and `n_{i+1}` MUST be peers in the overlay network.
+The sender gathers the public keys for `n_1` to `n_r` and generates a random 32 byte `sessionkey`.
 
 For each node the sender computes an _ephemeral public key_, a _shared secret_ and a _blinding factor_.
 The blinding factor is used at each hop to blind the ephemeral public key for the next hop.
@@ -162,7 +166,7 @@ The construction returns one 2258 byte packet and the first hop's address.
 
 The packet construction is performed in reverse order of the route, i.e., the last hop's operations are applied first.
 
-The end-to-end payload field is initialized by the actual payload, padding it with one `0x7F` byte followed by `0xFF` bytes for a total length to 1024 bytes.
+The end-to-end payload field is initialized with the payload, the encoding of the payload is out of the scope of this specification.
 The per-hop payload is initialized with 400 `0x00` bytes. 
 The routing info is initialized with 800 `0x00` bytes.
 The next address and the HMAC are initialized to 20 `0x00` bytes each.
@@ -285,6 +289,7 @@ The shared secret is used to compute a _mu_-key.  The node then computes the HMA
 payload, using the _mu_-key.
 The resulting HMAC is compared with the HMAC from the packet.
 Should the computed HMAC and the HMAC from the packet differ then the node MUST abort processing and report a route failure.
+Comparison of the computed HMAC and the HMAC from the packet MUST be time-constant to avoid leaking information.
 
 At this point the node can generate a _rho_-key, a _pi_-key and a _gamma_-key.
 
@@ -303,6 +308,8 @@ At this point the end-to-end payload is fully decrypted and the route has termin
 
 Should the HMAC not indicate route termination and the next hop be a peer of the current node, then the new packet is assembled by blinding the ephemeral key with the current node's public key and shared secret, and serializing the routing info, per-hop payload and end-to-end payload fields.
 The resulting packet is then forwarded to the addressed peer.
+The addressed peer MUST be a direct neighbor of the node processing the packet.
+Should the processing node not have a peer with the matching address, then it MUST drop the packet and signal a route failure.
 
 ## Shared secret
 
