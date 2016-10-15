@@ -584,7 +584,7 @@ The receiver of `update_revocation` MUST check that the SHA256 hash of
 `revocation_preimage` matches the previous commitment transaction, and
 MUST fail if it does not.  That node MUST add the remote unacked
 changes to the set of local acked changes.
-
+format
 Nodes MUST NOT broadcast old (revoked) commitment transactions; doing
 so will allow the other node to seize all the funds.  Nodes SHOULD NOT
 sign commitment transactions unless it is about to broadcast them (due
@@ -602,7 +602,7 @@ receives the `update_revocation` response to the previous
       required signature sig = 1;
     }
 
-### 3.5.2. `update_revocation` message format
+### 3.5.2. `update_revocation` message 
 
     // Complete the update.
     message update_revocation {
@@ -751,7 +751,7 @@ the mutual close transaction will be nonstandard.
 Once shutdown is complete the final current commitment transactions
 will have no HTLCs, and fee negotiation begins.  Each node chooses a
 fee and signs the close transaction the `script_pubkey` fields from
-the `close_celearing` messages and that fee, and sends the signature.
+the `close_clearing` messages and that fee, and sends the signature.
 The process terminates when both agree on a fee, or one side fails the
 connection.
 
@@ -831,14 +831,14 @@ it from a compact representation as described in [5].
 
 The blockchain is used to enforce commitments in the case where
 communication or cooperation breaks down between two nodes.  This is
-slower and more expensive that using off-chain signature exchanges,
+slower and more expensive than using off-chain signature exchanges,
 but vitally important for correct operation.
 
 ## 6.1. Monitoring the Blockchain
 
 Once the anchor transaction is broadcast, a node MUST monitor for
-transactions which spend the anchor transaction, and if seen it MUST
-fail the connection if not already failing or closed.
+transactions which spend the anchor transaction, and if seen, it MUST
+fail the connection, if not already failing or closed.
 
 If a node sees a revoked commitment transaction, it MUST use the
 revocation preimage to spend every output well before `delay` as
@@ -846,13 +846,13 @@ specified in the `open_channel`.  A node MAY need to use multiple
 transactions to spend the outputs, and MUST ensure that these
 transactions are each less than 100,000 bytes.
 
-A node MUST continue to monitor for (and react to) additional
+A node MUST continue to monitor for, and react to, additional
 transactions until one transaction is deeply buried (usually
 considered to be between 6 and 100 blocks).
 
 ## 6.2. On-chain HTLCs
 
-When a valid commitment transaction is broadcast, any HTLC outputs
+When a valid commitment transaction is broadcast, all HTLC outputs
 must be monitored and handled as follows:
 
 For each HTLC output this node offered:
