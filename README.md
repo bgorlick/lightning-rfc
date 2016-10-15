@@ -52,13 +52,13 @@ There are no known functional implementations of the Lightning Network
 yet. There are a number of partial implementations and prototypes,
 however:
 
-Nickname     | Contact(s)                  | Companies   | Status    | Notes
--------------|-----------------------------|-------------|-----------|-------
-[Amiko-Pay]  | CJP                         |             | Prototype | Python, GPLv3+
-[Eclair]     | Pierre-Marie PADIOU         | ACINQ       | Prototype | SCALA, Apache 2.0
-[lightningd] | Rusty Russell               | Blockstream | Prototype | C, MIT
-[lnd]        | Thaddeus Dryja, Joseph Poon |             | Prototype | Go, MIT
-[Thunder]    | matsjj                      |             | Prototype | Java, AGPLv3
+Nickname     | Contact(s)                      | Companies   | Status    | Notes
+-------------|-----------------------------    |-------------|-----------|-------
+[Amiko-Pay]  | CJP                             |             | Prototype | Python, GPLv3+
+[Eclair]     | Pierre-Marie PADIOU             | ACINQ       | Prototype | SCALA, Apache 2.0
+[lightningd] | Rusty Russell, Christian Decker | Blockstream | Prototype | C, MIT
+[lnd]        | Thaddeus Dryja, Joseph Poon     |             | Prototype | Go, MIT
+[Thunder]    | matsjj                          |             | Prototype | Java, AGPLv3
 
 [Amiko-Pay]: https://github.com/cornwarecjp/amiko-pay
 [Eclair]: https://github.com/ACINQ/eclair
